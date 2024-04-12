@@ -89,6 +89,7 @@ public final class Plugin extends JavaPlugin implements Listener {
                     if (!above.isEmpty()) continue;
                     if ((int) above.getLightFromBlocks() >= 8) continue;
                     above.setType(Material.TORCH);
+                    block.tick();
                     return true;
                 }
             }
