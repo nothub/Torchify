@@ -3,7 +3,7 @@ version: '@mod_version@'
 main: lol.hub.torchify.Plugin
 api-version: '1.20'
 author: nothub
-description: Simple auto-torching
+description: Light it up!
 website: https://github.com/nothub/Torchify
 
 commands:
