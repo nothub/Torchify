@@ -119,6 +119,7 @@ public final class Plugin extends JavaPlugin implements Listener {
                             Block block = player.getWorld().getBlockAt(player.getLocation());
                             if (placeTorch(block, 5, 12)) {
                                 stack.setAmount(stack.getAmount() - 1);
+                                player.getWorld().playSound(block.getLocation(), Sound.BLOCK_CANDLE_PLACE, 0.33f, 0.8f);
                             }
                         });
             }
