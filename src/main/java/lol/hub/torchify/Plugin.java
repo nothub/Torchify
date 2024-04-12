@@ -79,14 +79,14 @@ public final class Plugin extends JavaPlugin implements Listener {
         }
     }
 
-    private static boolean placeTorch(Block center, int radius, int lightLevel) {
+    private static boolean placeTorch(Block center, int radius) {
         for (int x = -radius; x < radius; x++) {
             for (int y = -radius; y < radius; y++) {
                 for (int z = -radius; z < radius; z++) {
                     Block block = center.getRelative(x, y, z);
                     Block above = block.getRelative(BlockFace.UP);
                     if (!above.isEmpty()) continue;
-                    if (block.getLightLevel() >= lightLevel) continue;
+                    if ((int) above.getLightFromBlocks() >= 8) continue;
                     above.setType(Material.TORCH);
                     return true;
                 }
@@ -100,30 +100,26 @@ public final class Plugin extends JavaPlugin implements Listener {
         PluginCommand cmd = getCommand("torchify");
         cmd.setExecutor(toggle);
         cmd.setTabCompleter((sender, command, label, args) -> Collections.emptyList());
-
         loadActives();
-
-        getServer().getScheduler().runTaskTimer(this, () -> {
-            for (Player player : getServer().getOnlinePlayers()) {
-                if (!actives.contains(player.getUniqueId())) return;
-                if (player.isDead()) continue;
-                if (player.isSleeping()) continue;
-                if (player.getGameMode() == GameMode.ADVENTURE) continue;
-                if (player.getGameMode() == GameMode.SPECTATOR) continue;
-                Arrays.stream(player.getInventory().getContents())
-                        .filter(Objects::nonNull)
-                        .filter(stack -> !stack.isEmpty())
-                        .filter(stack -> stack.getType() == Material.TORCH)
-                        .findFirst()
-                        .ifPresent(stack -> {
-                            Block block = player.getWorld().getBlockAt(player.getLocation());
-                            if (placeTorch(block, 5, 12)) {
-                                stack.setAmount(stack.getAmount() - 1);
-                                player.getWorld().playSound(block.getLocation(), Sound.BLOCK_CANDLE_PLACE, 0.33f, 0.8f);
-                            }
-                        });
-            }
-        }, 20, 20);
+        getServer().getScheduler().runTaskTimer(this, () ->
+                getServer().getOnlinePlayers().stream()
+                        .filter(player -> actives.contains(player.getUniqueId()))
+                        .filter(player -> !player.isDead())
+                        .filter(player -> !player.isSleeping())
+                        .filter(player -> player.getGameMode() != GameMode.ADVENTURE)
+                        .filter(player -> player.getGameMode() != GameMode.SPECTATOR)
+                        .forEach(player -> Arrays.stream(player.getInventory().getContents())
+                                .filter(Objects::nonNull)
+                                .filter(stack -> !stack.isEmpty())
+                                .filter(stack -> stack.getType() == Material.TORCH)
+                                .findFirst()
+                                .ifPresent(stack -> {
+                                    Block block = player.getWorld().getBlockAt(player.getLocation());
+                                    if (placeTorch(block, 5)) {
+                                        stack.setAmount(stack.getAmount() - 1);
+                                        player.getWorld().playSound(block.getLocation(), Sound.BLOCK_CANDLE_PLACE, 0.33f, 0.8f);
+                                    }
+                                })
+                        ), 20, 20);
     }
-
 }
