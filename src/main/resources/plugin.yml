@@ -1,0 +1,7 @@
+name: Torchify
+version: '@mod_version@'
+main: lol.hub.torchify.Plugin
+api-version: '1.20'
+author: nothub
+description: Simple Auto-Torching
+website: https://github.com/nothub/Torchify
