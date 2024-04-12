@@ -117,7 +117,7 @@ public final class Plugin extends JavaPlugin implements Listener {
                         .findFirst()
                         .ifPresent(stack -> {
                             Block block = player.getWorld().getBlockAt(player.getLocation());
-                            if (placeTorch(block, 5, 8)) {
+                            if (placeTorch(block, 5, 12)) {
                                 stack.setAmount(stack.getAmount() - 1);
                             }
                         });
