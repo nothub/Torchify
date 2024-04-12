@@ -84,6 +84,7 @@ public final class Plugin extends JavaPlugin implements Listener {
             for (int y = -radius; y < radius; y++) {
                 for (int z = -radius; z < radius; z++) {
                     Block block = center.getRelative(x, y, z);
+                    if (!block.isSolid()) continue;
                     Block above = block.getRelative(BlockFace.UP);
                     if (!above.isEmpty()) continue;
                     if ((int) above.getLightFromBlocks() >= 8) continue;
