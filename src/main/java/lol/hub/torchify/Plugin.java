@@ -8,9 +8,12 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.Listener;
 import org.bukkit.plugin.java.JavaPlugin;
 
+import java.util.Arrays;
+import java.util.Objects;
+
 public final class Plugin extends JavaPlugin implements Listener {
 
-    private static void placeTorch(Block center, int radius, int lightLevel) {
+    private static boolean placeTorch(Block center, int radius, int lightLevel) {
         for (int x = -radius; x < radius; x++) {
             for (int y = -radius; y < radius; y++) {
                 for (int z = -radius; z < radius; z++) {
@@ -19,10 +22,11 @@ public final class Plugin extends JavaPlugin implements Listener {
                     if (!above.isEmpty()) continue;
                     if (block.getLightLevel() >= lightLevel) continue;
                     above.setType(Material.TORCH);
-                    return;
+                    return true;
                 }
             }
         }
+        return false;
     }
 
     @Override
@@ -33,7 +37,17 @@ public final class Plugin extends JavaPlugin implements Listener {
                 if (player.isSleeping()) continue;
                 if (player.getGameMode() == GameMode.ADVENTURE) continue;
                 if (player.getGameMode() == GameMode.SPECTATOR) continue;
-                placeTorch(player.getWorld().getBlockAt(player.getLocation()), 5, 8);
+                Arrays.stream(player.getInventory().getContents())
+                        .filter(Objects::nonNull)
+                        .filter(stack -> !stack.isEmpty())
+                        .filter(stack -> stack.getType() == Material.TORCH)
+                        .findFirst()
+                        .ifPresent(stack -> {
+                            Block block = player.getWorld().getBlockAt(player.getLocation());
+                            if (placeTorch(block, 5, 8)) {
+                                stack.setAmount(stack.getAmount() - 1);
+                            }
+                        });
             }
         }, 20, 20);
     }
