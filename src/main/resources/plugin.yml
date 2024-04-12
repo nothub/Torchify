@@ -3,5 +3,16 @@ version: '@mod_version@'
 main: lol.hub.torchify.Plugin
 api-version: '1.20'
 author: nothub
-description: Simple Auto-Torching
+description: Simple auto-torching
 website: https://github.com/nothub/Torchify
+
+commands:
+  torchify:
+    description: 'Toggle auto-torching'
+    usage: '/torchify'
+    aliases: [ 'autotorch' ]
+    permission: torchify.toggle
+
+permissions:
+  torchify.toggle:
+    default: true
