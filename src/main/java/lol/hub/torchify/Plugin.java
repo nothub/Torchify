@@ -5,6 +5,7 @@ import org.bukkit.Material;
 import org.bukkit.Sound;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockFace;
+import org.bukkit.block.data.BlockData;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.PluginCommand;
 import org.bukkit.entity.Player;
@@ -23,6 +24,8 @@ import static net.kyori.adventure.text.format.NamedTextColor.GREEN;
 import static net.kyori.adventure.text.format.NamedTextColor.RED;
 
 public final class Plugin extends JavaPlugin implements Listener {
+
+    private static final BlockData torchData = Material.TORCH.createBlockData();
 
     private static final Path configActives = Path.of("plugins", "torchify", "active.txt");
 
@@ -86,8 +89,8 @@ public final class Plugin extends JavaPlugin implements Listener {
                     Block block = center.getRelative(x, y, z);
                     if (!block.isSolid()) continue;
                     Block above = block.getRelative(BlockFace.UP);
-                    if (!above.isEmpty()) continue;
                     if ((int) above.getLightFromBlocks() >= 8) continue;
+                    if (!above.canPlace(torchData)) continue;
                     above.setType(Material.TORCH);
                     block.tick();
                     return true;
