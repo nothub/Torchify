@@ -89,8 +89,9 @@ public final class Plugin extends JavaPlugin implements Listener {
                     Block block = center.getRelative(x, y, z);
                     if (!block.isSolid()) continue;
                     Block above = block.getRelative(BlockFace.UP);
-                    if ((int) above.getLightFromBlocks() >= 8) continue;
+                    if (!above.isEmpty()) continue;
                     if (!above.canPlace(torchData)) continue;
+                    if ((int) above.getLightFromBlocks() >= 8) continue;
                     above.setType(Material.TORCH);
                     block.tick();
                     return true;
