@@ -23,6 +23,7 @@ import static net.kyori.adventure.text.Component.text;
 import static net.kyori.adventure.text.format.NamedTextColor.GREEN;
 import static net.kyori.adventure.text.format.NamedTextColor.RED;
 
+@SuppressWarnings("unused")
 public final class Plugin extends JavaPlugin implements Listener {
 
     private static final BlockData torchData = Material.TORCH.createBlockData();
