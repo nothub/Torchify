@@ -34,3 +34,4 @@ jobs:
           modrinth-id: 'VblQOYSn'
           modrinth-token: '${{ secrets.MODRINTH_TOKEN }}'
           files: 'build/dist/*.jar'
+          loaders: 'paper'
