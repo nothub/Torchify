@@ -86,14 +86,29 @@ public final class Plugin extends JavaPlugin implements Listener {
         for (int x = -radius; x < radius; x++) {
             for (int y = -radius; y < radius; y++) {
                 for (int z = -radius; z < radius; z++) {
+
+                    // the block below the torch
                     Block block = center.getRelative(x, y, z);
                     if (!block.isSolid()) continue;
+
+                    // the block the torch will be placed inside of
                     Block above = block.getRelative(BlockFace.UP);
+
+                    // this check is required, otherwise torches will be placed
+                    // in unsuitable locations like underwater
                     if (!above.isEmpty()) continue;
+
+                    // this also excludes blocks like slabs, stairs
+                    // or e.g. the top of a cactus
                     if (!above.canPlace(torchData)) continue;
+
+                    // ignore blocks that already have a sufficient light level
                     if ((int) above.getLightFromBlocks() >= 8) continue;
+
+                    // place torch and tick block below the torch
                     above.setType(Material.TORCH);
                     block.tick();
+
                     return true;
                 }
             }
