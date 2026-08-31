@@ -1,6 +1,6 @@
 # Torchify
 
-Light it up!
+Paper plugin. Light it up!
 
 [Modrinth](https://modrinth.com/mod/torchify)  
 [GitHub](https://github.com/nothub/torchify/releases)
