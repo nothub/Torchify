@@ -1,6 +1,7 @@
 plugins {
     id 'java-library'
     id "xyz.jpenilla.run-paper" version "3.1.0"
+    id 'io.papermc.paperweight.userdev' version '2.0.0-beta.24'
 }
 
 group = 'lol.hub'
@@ -37,7 +38,8 @@ configurations {
 }
 
 dependencies {
-    compileOnly group: 'io.papermc.paper', name: 'paper-api', version: "${project.minecraft_version}.build.+"
+    // Resolved at configuration time, so every task, `clean` included, needs it in the Gradle cache.
+    paperweight.paperDevBundle("${project.minecraft_version}.build.+")
 
     testImplementation "lol.hub:testutils-library:${project.testutils_version}"
     testImplementation platform('org.junit:junit-bom:6.1.3')
@@ -47,6 +49,10 @@ dependencies {
     testutilsPlugin "lol.hub:testutils:${project.testutils_version}:${project.minecraft_version}-paper"
     testutilsPin "lol.hub:testutils:${project.testutils_version}@properties"
 }
+
+// The default also adds the server to testImplementation. The tests drive a real server over RCON
+// and never touch Paper classes.
+paperweight.addServerDependencyTo.set([configurations.compileOnly])
 
 java {
     toolchain.languageVersion = JavaLanguageVersion.of(project.java_version)
@@ -72,7 +78,8 @@ jar.archiveFileName.set("${project.name.toLowerCase()}-${project.version}+${proj
 jar.destinationDirectory.set(layout.buildDirectory.dir('dist'))
 
 // The Paper build to test on comes from the pin asset of the TestUtils release, so it is known only
-// once that asset is resolved. Call this only from tasks that need Paper: `clean` and `tasks` need no network.
+// once that asset is resolved. Call this only from tasks that need the pinned build, so `clean` and
+// `tasks` don't fetch the pin.
 def pinnedPaper = {
     def pin = new Properties()
     configurations.testutilsPin.singleFile.withInputStream { pin.load(it) }
@@ -154,6 +161,12 @@ def runServerProperties = [
         'rcon.port'        : '25575',
         'rcon.password'    : 'testutils',
 ]
+
+// run-paper adds it for paperweight builds. It boots the newest dev bundle build without the TestUtils
+// plugin, not the pin.
+tasks.named('runDevBundleServer') {
+    doFirst { throw new GradleException('use runServer: it boots the Paper build the tests run on') }
+}
 
 tasks.named('runServer') {
     minecraftVersion("${project.minecraft_version}")
