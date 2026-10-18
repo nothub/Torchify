@@ -52,9 +52,9 @@ class TorchTest {
         return bot;
     }
 
-    // Torchify scans 5 blocks around the bot, all inside the area. Replacing every torch with air
-    // answers with the count, which no query command gives.
-    private static int removeTorchBlocks(TestServer server, Area area) {
+    // Torchify reaches 4.5 blocks from the bot's eyes, all inside the area, and on the open floor a torch
+    // stands at dy 1. Replacing every torch with air answers with the count, which no query command gives.
+    static int removeTorchBlocks(TestServer server, Area area) {
         String reply = server.command("fill " + area.at(0, -4, 0) + " " + area.at(15, 5, 15) + " air replace minecraft:torch");
         if (reply.startsWith("No blocks were filled")) return 0;
         Matcher filled = FILLED.matcher(reply);
@@ -62,7 +62,7 @@ class TorchTest {
         return Integer.parseInt(filled.group(1));
     }
 
-    private static int torches(Inventory inventory) {
+    static int torches(Inventory inventory) {
         return inventory.slots().values().stream()
                 .filter(item -> item.id().equals("minecraft:torch"))
                 .mapToInt(Item::count)
