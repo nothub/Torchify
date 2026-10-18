@@ -1,6 +1,7 @@
 package lol.hub.torchify;
 
 import org.bukkit.FluidCollisionMode;
+import org.bukkit.GameMode;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.Sound;
@@ -9,18 +10,36 @@ import org.bukkit.attribute.Attribute;
 import org.bukkit.block.Block;
 import org.bukkit.block.data.BlockData;
 import org.bukkit.craftbukkit.CraftWorld;
+import org.bukkit.entity.ArmorStand;
+import org.bukkit.entity.Boat;
+import org.bukkit.entity.EnderCrystal;
+import org.bukkit.entity.Entity;
+import org.bukkit.entity.FallingBlock;
+import org.bukkit.entity.LivingEntity;
+import org.bukkit.entity.Minecart;
 import org.bukkit.entity.Player;
+import org.bukkit.entity.TNTPrimed;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.util.BoundingBox;
 import org.bukkit.util.Vector;
 
-import java.util.Arrays;
-import java.util.Objects;
-import java.util.Optional;
+import java.util.EnumSet;
+import java.util.List;
+import java.util.Set;
 
 /** Lights the furthest spot a player could have lit themselves, where a hostile mob could spawn. */
 final class Placement {
 
-    private static final BlockData torchData = Material.TORCH.createBlockData();
+    // Best first. Items within a group rank equal, so inventory order decides between them. Each item shares its
+    // Material with the block it places.
+    private static final List<List<Material>> lightSources = List.of(
+            List.of(Material.WAXED_COPPER_LANTERN, Material.WAXED_EXPOSED_COPPER_LANTERN,
+                    Material.WAXED_WEATHERED_COPPER_LANTERN, Material.WAXED_OXIDIZED_COPPER_LANTERN),
+            List.of(Material.COPPER_LANTERN, Material.EXPOSED_COPPER_LANTERN,
+                    Material.WEATHERED_COPPER_LANTERN, Material.OXIDIZED_COPPER_LANTERN),
+            List.of(Material.LANTERN),
+            List.of(Material.COPPER_TORCH),
+            List.of(Material.TORCH));
     // At a spawn light limit this high, no light prevents spawns.
     private static final int maxBlockLight = 15;
 
@@ -28,29 +47,33 @@ final class Placement {
     }
 
     /**
-     * Places one torch from the player's inventory. Returns false when light can't prevent spawns here, the player
-     * has no torch or no spot fits.
+     * Places one light source from the player's inventory, the best item that fits somewhere. Returns false when light
+     * can't prevent spawns here, the player carries no light source or none fits.
      */
     static boolean lightOneSpot(Player player) {
         int limit = spawnBlockLightLimit(player.getWorld());
         if (limit >= maxBlockLight) return false;
 
-        Optional<ItemStack> torches = Arrays.stream(player.getInventory().getContents())
-                .filter(Objects::nonNull)
-                .filter(stack -> stack.getType() == Material.TORCH)
-                .findFirst();
-        if (torches.isEmpty()) return false;
+        ItemStack[] contents = player.getInventory().getContents();
+        for (List<Material> group : lightSources) {
+            Set<Material> tried = EnumSet.noneOf(Material.class);
+            for (ItemStack stack : contents) {
+                if (stack == null || !group.contains(stack.getType()) || !tried.add(stack.getType())) continue;
 
-        Block spot = furthestSpot(player, limit);
-        if (spot == null) return false;
+                BlockData block = stack.getType().createBlockData();
+                Block spot = furthestSpot(player, limit, block);
+                if (spot == null) continue;
 
-        spot.setBlockData(torchData);
-        torches.get().setAmount(torches.get().getAmount() - 1);
-        spot.getWorld().playSound(spot.getLocation(), Sound.BLOCK_CANDLE_PLACE, 0.33f, 0.8f);
-        return true;
+                spot.setBlockData(block);
+                stack.setAmount(stack.getAmount() - 1);
+                spot.getWorld().playSound(spot.getLocation(), Sound.BLOCK_CANDLE_PLACE, 0.33f, 0.8f);
+                return true;
+            }
+        }
+        return false;
     }
 
-    private static Block furthestSpot(Player player, int limit) {
+    private static Block furthestSpot(Player player, int limit, BlockData block) {
         World world = player.getWorld();
         Location eyes = player.getEyeLocation();
         Vector eyesVector = eyes.toVector();
@@ -73,7 +96,8 @@ final class Placement {
                     Material type = cell.getType();
                     if (type != Material.AIR && type != Material.CAVE_AIR) continue;
                     if (cell.getLightFromBlocks() > limit) continue;
-                    if (!cell.canPlace(torchData)) continue;
+                    // canPlace checks survival only.
+                    if (!cell.canPlace(block) || obstructed(cell, block)) continue;
                     // Outline shapes, as the player's own block pick uses.
                     if (world.rayTraceBlocks(eyes, toCenter, distance, FluidCollisionMode.NEVER, false) != null) continue;
 
@@ -83,6 +107,23 @@ final class Placement {
             }
         }
         return best;
+    }
+
+    // Vanilla refuses a block whose collision box overlaps an entity that blocks building.
+    private static boolean obstructed(Block cell, BlockData block) {
+        for (BoundingBox box : block.getCollisionShape(cell.getLocation()).getBoundingBoxes()) {
+            box.shift(cell.getX(), cell.getY(), cell.getZ());
+            if (!cell.getWorld().getNearbyEntities(box, Placement::blocksBuilding).isEmpty()) return true;
+        }
+        return false;
+    }
+
+    // Vanilla's Entity.blocksBuilding has no API. These are the entities that set it in 26.3. Spectators never block.
+    private static boolean blocksBuilding(Entity entity) {
+        if (entity instanceof Player player && player.getGameMode() == GameMode.SPECTATOR) return false;
+        if (entity instanceof ArmorStand stand) return !stand.isMarker();
+        return entity instanceof LivingEntity || entity instanceof Boat || entity instanceof Minecart
+                || entity instanceof TNTPrimed || entity instanceof FallingBlock || entity instanceof EnderCrystal;
     }
 
     private static int spawnBlockLightLimit(World world) {
