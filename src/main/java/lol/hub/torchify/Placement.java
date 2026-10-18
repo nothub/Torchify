@@ -9,6 +9,7 @@ import org.bukkit.World;
 import org.bukkit.attribute.Attribute;
 import org.bukkit.block.Block;
 import org.bukkit.block.data.BlockData;
+import org.bukkit.block.data.type.Lantern;
 import org.bukkit.craftbukkit.CraftWorld;
 import org.bukkit.entity.ArmorStand;
 import org.bukkit.entity.Boat;
@@ -60,20 +61,30 @@ final class Placement {
             for (ItemStack stack : contents) {
                 if (stack == null || !group.contains(stack.getType()) || !tried.add(stack.getType())) continue;
 
-                BlockData block = stack.getType().createBlockData();
-                Block spot = furthestSpot(player, limit, block);
+                Spot spot = furthestSpot(player, limit, variants(stack.getType()));
                 if (spot == null) continue;
 
-                spot.setBlockData(block);
+                Block cell = spot.cell();
+                cell.setBlockData(spot.block());
                 stack.setAmount(stack.getAmount() - 1);
-                spot.getWorld().playSound(spot.getLocation(), Sound.BLOCK_CANDLE_PLACE, 0.33f, 0.8f);
+                cell.getWorld().playSound(cell.getLocation(), Sound.BLOCK_CANDLE_PLACE, 0.33f, 0.8f);
                 return true;
             }
         }
         return false;
     }
 
-    private static Block furthestSpot(Player player, int limit, BlockData block) {
+    private record Spot(Block cell, BlockData block) {
+    }
+
+    // In the order a cell tries them, so a lantern stands wherever it could also hang.
+    private static List<BlockData> variants(Material item) {
+        BlockData standing = item.createBlockData();
+        if (!(standing instanceof Lantern)) return List.of(standing);
+        return List.of(standing, item.createBlockData(block -> ((Lantern) block).setHanging(true)));
+    }
+
+    private static Spot furthestSpot(Player player, int limit, List<BlockData> variants) {
         World world = player.getWorld();
         Location eyes = player.getEyeLocation();
         Vector eyesVector = eyes.toVector();
@@ -81,7 +92,7 @@ final class Placement {
 
         int minY = Math.max(world.getMinHeight(), (int) Math.floor(eyes.getY() - range));
         int maxY = Math.min(world.getMaxHeight() - 1, (int) Math.floor(eyes.getY() + range));
-        Block best = null;
+        Spot best = null;
         // Starts above 0: the ray to a cell centre at the eyes would have no direction.
         double bestDistance = 0;
         for (int x = (int) Math.floor(eyes.getX() - range); x <= (int) Math.floor(eyes.getX() + range); x++) {
@@ -96,17 +107,25 @@ final class Placement {
                     Material type = cell.getType();
                     if (type != Material.AIR && type != Material.CAVE_AIR) continue;
                     if (cell.getLightFromBlocks() > limit) continue;
-                    // canPlace checks survival only.
-                    if (!cell.canPlace(block) || obstructed(cell, block)) continue;
+                    BlockData block = firstFit(cell, variants);
+                    if (block == null) continue;
                     // Outline shapes, as the player's own block pick uses.
                     if (world.rayTraceBlocks(eyes, toCenter, distance, FluidCollisionMode.NEVER, false) != null) continue;
 
-                    best = cell;
+                    best = new Spot(cell, block);
                     bestDistance = distance;
                 }
             }
         }
         return best;
+    }
+
+    private static BlockData firstFit(Block cell, List<BlockData> variants) {
+        for (BlockData block : variants) {
+            // canPlace checks survival only.
+            if (cell.canPlace(block) && !obstructed(cell, block)) return block;
+        }
+        return null;
     }
 
     // Vanilla refuses a block whose collision box overlaps an entity that blocks building.

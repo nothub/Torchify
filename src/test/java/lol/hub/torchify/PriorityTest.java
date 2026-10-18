@@ -121,21 +121,26 @@ class PriorityTest {
 
     // Light blocks fill the reach, so the one cleared cell is the only candidate, and any light found in the area
     // stands there.
-    private static void onlyCandidate(Area area, Pos cell) {
+    static void onlyCandidate(Area area, Pos cell) {
         sealedBox(area);
         area.command("fill " + area.at(4, 1, 4) + " " + area.at(11, 6, 11) + " light[level=1]");
         area.command("setblock " + cell + " air");
         awaitLight(area, Map.of(cell, 0));
     }
 
-    private static void give(Area area, Bot bot, int slot, String item) {
+    static void give(Area area, Bot bot, int slot, String item) {
         String reply = area.command("item replace entity " + bot.name() + " hotbar." + slot + " with " + item + " " + COUNT);
         assertTrue(reply.startsWith("Replaced 1 slot(s)"), "give " + item + " answered: " + reply);
     }
 
-    // Toggles Torchify on until one item is used, then off, and returns the one item used. Asserts that exactly that
-    // item's block landed in the area and no other light did.
     private static String placeOne(Area area, Bot bot) {
+        String item = useOne(area, bot);
+        onlyLightLanded(area, item);
+        return item;
+    }
+
+    // Toggles Torchify on until one item is used, then off, and returns the one item used.
+    static String useOne(Area area, Bot bot) {
         Map<String, Integer> before = counts(bot.inventory());
         int carried = before.values().stream().mapToInt(Integer::intValue).sum();
         assertTrue(bot.run("torchify"), "torchify command");
@@ -147,10 +152,14 @@ class PriorityTest {
         assertEquals(1, used.size(), "item kinds used, before " + before + ", after " + after);
         String item = used.getFirst();
         assertEquals(before.get(item) - 1, after.getOrDefault(item, 0), item + " used");
+        return item;
+    }
+
+    // Removes every light in the area, asserting one block of the item and none of any other.
+    static void onlyLightLanded(Area area, String item) {
         for (String light : TABLE) {
             assertEquals(light.equals(item) ? 1 : 0, removeBlocks(area, light), light + " blocks in the area");
         }
-        return item;
     }
 
     private static Map<String, Integer> counts(Inventory inventory) {
