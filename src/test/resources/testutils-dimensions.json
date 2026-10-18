@@ -1,0 +1,3 @@
+[
+  {"id": "torchify:limit_5", "base": "minecraft:overworld", "overrides": {"monster_spawn_block_light_limit": 5}}
+]

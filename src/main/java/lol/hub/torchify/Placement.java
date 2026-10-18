@@ -21,19 +21,27 @@ import java.util.Optional;
 final class Placement {
 
     private static final BlockData torchData = Material.TORCH.createBlockData();
+    // At a spawn light limit this high, no light prevents spawns.
+    private static final int maxBlockLight = 15;
 
     private Placement() {
     }
 
-    /** Places one torch from the player's inventory. Returns false when the player has no torch or no spot fits. */
+    /**
+     * Places one torch from the player's inventory. Returns false when light can't prevent spawns here, the player
+     * has no torch or no spot fits.
+     */
     static boolean lightOneSpot(Player player) {
+        int limit = spawnBlockLightLimit(player.getWorld());
+        if (limit >= maxBlockLight) return false;
+
         Optional<ItemStack> torches = Arrays.stream(player.getInventory().getContents())
                 .filter(Objects::nonNull)
                 .filter(stack -> stack.getType() == Material.TORCH)
                 .findFirst();
         if (torches.isEmpty()) return false;
 
-        Block spot = furthestSpot(player);
+        Block spot = furthestSpot(player, limit);
         if (spot == null) return false;
 
         spot.setBlockData(torchData);
@@ -42,12 +50,11 @@ final class Placement {
         return true;
     }
 
-    private static Block furthestSpot(Player player) {
+    private static Block furthestSpot(Player player, int limit) {
         World world = player.getWorld();
         Location eyes = player.getEyeLocation();
         Vector eyesVector = eyes.toVector();
         double range = player.getAttribute(Attribute.BLOCK_INTERACTION_RANGE).getValue();
-        int limit = spawnBlockLightLimit(world);
 
         int minY = Math.max(world.getMinHeight(), (int) Math.floor(eyes.getY() - range));
         int maxY = Math.min(world.getMaxHeight() - 1, (int) Math.floor(eyes.getY() + range));

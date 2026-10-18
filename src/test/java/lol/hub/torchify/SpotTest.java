@@ -24,7 +24,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 @ExtendWith(TestServerExtension.class)
 class SpotTest {
 
-    private static final int TORCHES = 64;
+    static final int TORCHES = 64;
 
     @Test
     void torchLandsOnTheFurthestDarkFloorCellInReach(TestServer server, Area area) {
@@ -76,7 +76,7 @@ class SpotTest {
         Waiting.holdsFor(Duration.ofSeconds(3), () -> torches(bot.inventory()), count -> count == TORCHES);
     }
 
-    private static Bot botWithTorches(Area area) {
+    static Bot botWithTorches(Area area) {
         Bot bot = area.bot();
         bot.hold("minecraft:torch " + TORCHES);
         assertEquals(TORCHES, torches(bot.inventory()), "torches before the test");
@@ -84,7 +84,7 @@ class SpotTest {
     }
 
     // Toggled off after the first torch, so the world can be read without the timer racing it.
-    private static void placeOneTorch(Bot bot) {
+    static void placeOneTorch(Bot bot) {
         assertTrue(bot.run("torchify"), "torchify command");
         Waiting.waitUntil(Duration.ofSeconds(10), () -> torches(bot.inventory()), count -> count < TORCHES);
         assertTrue(bot.run("torchify"), "torchify command");
@@ -93,14 +93,14 @@ class SpotTest {
 
     // A stone box around the bot's reach, with air inside. Sky light inside settles to 0, so vanilla's light
     // predicate, which reads the brighter of sky and block light, reads block light.
-    private static void sealedBox(Area area) {
+    static void sealedBox(Area area) {
         String reply = area.command("fill " + area.at(3, 0, 3) + " " + area.at(12, 7, 12) + " stone hollow");
         assertTrue(reply.startsWith("Successfully filled"), "box fill answered: " + reply);
     }
 
     // Paper computes light off the main thread, so a fixture is used only once every listed cell reads its level.
     // A second condition in the chain, like `if loaded`, would turn a failed check into an empty reply.
-    private static void awaitLight(Area area, Map<Pos, Integer> levels) {
+    static void awaitLight(Area area, Map<Pos, Integer> levels) {
         Waiting.waitUntil(Duration.ofSeconds(10), () -> levels.entrySet().stream()
                 .filter(cell -> !lightIs(area, cell.getKey(), cell.getValue()))
                 .map(Map.Entry::getKey)
