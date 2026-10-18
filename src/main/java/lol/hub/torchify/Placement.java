@@ -9,6 +9,7 @@ import org.bukkit.World;
 import org.bukkit.attribute.Attribute;
 import org.bukkit.block.Block;
 import org.bukkit.block.data.BlockData;
+import org.bukkit.block.data.Levelled;
 import org.bukkit.block.data.type.Lantern;
 import org.bukkit.craftbukkit.CraftWorld;
 import org.bukkit.entity.ArmorStand;
@@ -61,7 +62,7 @@ final class Placement {
             for (ItemStack stack : contents) {
                 if (stack == null || !group.contains(stack.getType()) || !tried.add(stack.getType())) continue;
 
-                Spot spot = furthestSpot(player, limit, variants(stack.getType()));
+                Spot spot = furthestSpot(player, limit, stack.getType());
                 if (spot == null) continue;
 
                 Block cell = spot.cell();
@@ -77,14 +78,24 @@ final class Placement {
     private record Spot(Block cell, BlockData block) {
     }
 
-    // In the order a cell tries them, so a lantern stands wherever it could also hang.
-    private static List<BlockData> variants(Material item) {
+    // In the order a cell tries them, so a lantern stands wherever it could also hang. A torch can't be waterlogged.
+    private static List<BlockData> variants(Material item, boolean waterlogged) {
         BlockData standing = item.createBlockData();
-        if (!(standing instanceof Lantern)) return List.of(standing);
-        return List.of(standing, item.createBlockData(block -> ((Lantern) block).setHanging(true)));
+        if (!(standing instanceof Lantern)) return waterlogged ? List.of() : List.of(standing);
+        return List.of(lantern(item, false, waterlogged), lantern(item, true, waterlogged));
     }
 
-    private static Spot furthestSpot(Player player, int limit, List<BlockData> variants) {
+    private static BlockData lantern(Material item, boolean hanging, boolean waterlogged) {
+        return item.createBlockData(block -> {
+            Lantern lantern = (Lantern) block;
+            lantern.setHanging(hanging);
+            lantern.setWaterlogged(waterlogged);
+        });
+    }
+
+    private static Spot furthestSpot(Player player, int limit, Material item) {
+        List<BlockData> airVariants = variants(item, false);
+        List<BlockData> waterVariants = variants(item, true);
         World world = player.getWorld();
         Location eyes = player.getEyeLocation();
         Vector eyesVector = eyes.toVector();
@@ -104,8 +115,8 @@ final class Placement {
                     if (distance > range || distance <= bestDistance) continue;
 
                     Block cell = world.getBlockAt(x, y, z);
-                    Material type = cell.getType();
-                    if (type != Material.AIR && type != Material.CAVE_AIR) continue;
+                    List<BlockData> variants = cellVariants(cell, airVariants, waterVariants);
+                    if (variants.isEmpty()) continue;
                     if (cell.getLightFromBlocks() > limit) continue;
                     BlockData block = firstFit(cell, variants);
                     if (block == null) continue;
@@ -118,6 +129,15 @@ final class Placement {
             }
         }
         return best;
+    }
+
+    // Only source water waterlogs a block. A waterlogged block is not a water cell: its type is the block's own.
+    private static List<BlockData> cellVariants(Block cell, List<BlockData> airVariants, List<BlockData> waterVariants) {
+        return switch (cell.getType()) {
+            case AIR, CAVE_AIR -> airVariants;
+            case WATER -> ((Levelled) cell.getBlockData()).getLevel() == 0 ? waterVariants : List.of();
+            default -> List.of();
+        };
     }
 
     private static BlockData firstFit(Block cell, List<BlockData> variants) {
