@@ -57,12 +57,15 @@ final class Placement {
         if (limit >= maxBlockLight) return false;
 
         ItemStack[] contents = player.getInventory().getContents();
+        // Created once the player turns out to carry a light source, then shared by every item tried.
+        Reach reach = null;
         for (List<Material> group : lightSources) {
             Set<Material> tried = EnumSet.noneOf(Material.class);
             for (ItemStack stack : contents) {
                 if (stack == null || !group.contains(stack.getType()) || !tried.add(stack.getType())) continue;
 
-                Spot spot = furthestSpot(player, limit, stack.getType());
+                if (reach == null) reach = new Reach(player, limit);
+                Spot spot = reach.furthestSpot(stack.getType());
                 if (spot == null) continue;
 
                 Block cell = spot.cell();
@@ -93,51 +96,100 @@ final class Placement {
         });
     }
 
-    private static Spot furthestSpot(Player player, int limit, Material item) {
-        List<BlockData> airVariants = variants(item, false);
-        List<BlockData> waterVariants = variants(item, true);
-        World world = player.getWorld();
-        Location eyes = player.getEyeLocation();
-        Vector eyesVector = eyes.toVector();
-        double range = player.getAttribute(Attribute.BLOCK_INTERACTION_RANGE).getValue();
+    private enum Kind {DARK_AIR, DARK_WATER, NONE}
 
-        int minY = Math.max(world.getMinHeight(), (int) Math.floor(eyes.getY() - range));
-        int maxY = Math.min(world.getMaxHeight() - 1, (int) Math.floor(eyes.getY() + range));
-        Spot best = null;
-        // Starts above 0: the ray to a cell centre at the eyes would have no direction.
-        double bestDistance = 0;
-        for (int x = (int) Math.floor(eyes.getX() - range); x <= (int) Math.floor(eyes.getX() + range); x++) {
-            for (int y = minY; y <= maxY; y++) {
-                for (int z = (int) Math.floor(eyes.getZ() - range); z <= (int) Math.floor(eyes.getZ() + range); z++) {
-                    Vector toCenter = new Vector(x + 0.5, y + 0.5, z + 0.5).subtract(eyesVector);
-                    double distance = toCenter.length();
-                    // Strictly greater, so ties keep the first cell in scan order.
-                    if (distance > range || distance <= bestDistance) continue;
+    /**
+     * The cells in a player's reach. Each item scans them for its furthest fit. The facts that don't depend on the
+     * item are read on first use and reused by later items: whether a cell is dark air or dark source water, and
+     * whether it is in sight. They stay valid only while the world is unchanged, so a Reach lives for one
+     * lightOneSpot call.
+     */
+    private static final class Reach {
+        private final World world;
+        private final Location eyes;
+        private final int limit;
+        private final double range;
+        private final int minX, minY, minZ, maxX, maxY, maxZ;
+        private final Block[] blocks;
+        private final Kind[] kinds;
+        private final Boolean[] inSight;
 
-                    Block cell = world.getBlockAt(x, y, z);
-                    List<BlockData> variants = cellVariants(cell, airVariants, waterVariants);
-                    if (variants.isEmpty()) continue;
-                    if (cell.getLightFromBlocks() > limit) continue;
-                    BlockData block = firstFit(cell, variants);
-                    if (block == null) continue;
-                    // Outline shapes, as the player's own block pick uses.
-                    if (world.rayTraceBlocks(eyes, toCenter, distance, FluidCollisionMode.NEVER, false) != null) continue;
+        Reach(Player player, int limit) {
+            this.world = player.getWorld();
+            this.eyes = player.getEyeLocation();
+            this.limit = limit;
+            this.range = player.getAttribute(Attribute.BLOCK_INTERACTION_RANGE).getValue();
+            this.minX = (int) Math.floor(eyes.getX() - range);
+            this.maxX = (int) Math.floor(eyes.getX() + range);
+            this.minY = Math.max(world.getMinHeight(), (int) Math.floor(eyes.getY() - range));
+            this.maxY = Math.min(world.getMaxHeight() - 1, (int) Math.floor(eyes.getY() + range));
+            this.minZ = (int) Math.floor(eyes.getZ() - range);
+            this.maxZ = (int) Math.floor(eyes.getZ() + range);
+            int size = (maxX - minX + 1) * Math.max(0, maxY - minY + 1) * (maxZ - minZ + 1);
+            this.blocks = new Block[size];
+            this.kinds = new Kind[size];
+            this.inSight = new Boolean[size];
+        }
 
-                    best = new Spot(cell, block);
-                    bestDistance = distance;
+        Spot furthestSpot(Material item) {
+            List<BlockData> airVariants = variants(item, false);
+            List<BlockData> waterVariants = variants(item, true);
+            Spot best = null;
+            // Starts above 0: the ray to a cell centre at the eyes would have no direction.
+            double bestDistance = 0;
+            int i = 0;
+            for (int x = minX; x <= maxX; x++) {
+                for (int y = minY; y <= maxY; y++) {
+                    for (int z = minZ; z <= maxZ; z++, i++) {
+                        double dx = x + 0.5 - eyes.getX();
+                        double dy = y + 0.5 - eyes.getY();
+                        double dz = z + 0.5 - eyes.getZ();
+                        double distance = Math.sqrt(dx * dx + dy * dy + dz * dz);
+                        // Strictly greater, so ties keep the first cell in scan order.
+                        if (distance > range || distance <= bestDistance) continue;
+
+                        List<BlockData> variants = switch (kind(i, x, y, z)) {
+                            case DARK_AIR -> airVariants;
+                            case DARK_WATER -> waterVariants;
+                            case NONE -> List.of();
+                        };
+                        if (variants.isEmpty()) continue;
+                        BlockData block = firstFit(blocks[i], variants);
+                        if (block == null) continue;
+                        if (!inSight(i, dx, dy, dz, distance)) continue;
+
+                        best = new Spot(blocks[i], block);
+                        bestDistance = distance;
+                    }
                 }
             }
+            return best;
         }
-        return best;
-    }
 
-    // Only source water waterlogs a block. A waterlogged block is not a water cell: its type is the block's own.
-    private static List<BlockData> cellVariants(Block cell, List<BlockData> airVariants, List<BlockData> waterVariants) {
-        return switch (cell.getType()) {
-            case AIR, CAVE_AIR -> airVariants;
-            case WATER -> ((Levelled) cell.getBlockData()).getLevel() == 0 ? waterVariants : List.of();
-            default -> List.of();
-        };
+        private Kind kind(int i, int x, int y, int z) {
+            if (kinds[i] == null) {
+                Block cell = world.getBlockAt(x, y, z);
+                blocks[i] = cell;
+                Kind kind = switch (cell.getType()) {
+                    case AIR, CAVE_AIR -> Kind.DARK_AIR;
+                    // Only source water waterlogs a block. A waterlogged block is not a water cell: its type is the
+                    // block's own.
+                    case WATER -> ((Levelled) cell.getBlockData()).getLevel() == 0 ? Kind.DARK_WATER : Kind.NONE;
+                    default -> Kind.NONE;
+                };
+                kinds[i] = kind != Kind.NONE && cell.getLightFromBlocks() > limit ? Kind.NONE : kind;
+            }
+            return kinds[i];
+        }
+
+        // Outline shapes, as the player's own block pick uses.
+        private boolean inSight(int i, double dx, double dy, double dz, double distance) {
+            if (inSight[i] == null) {
+                inSight[i] = world.rayTraceBlocks(eyes, new Vector(dx, dy, dz), distance, FluidCollisionMode.NEVER,
+                        false) == null;
+            }
+            return inSight[i];
+        }
     }
 
     private static BlockData firstFit(Block cell, List<BlockData> variants) {
