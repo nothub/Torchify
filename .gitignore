@@ -1,5 +1,6 @@
-/.devbox/
-/devbox.lock
-/.gradle/
-/build/
-/run/
+.gradle/
+build/
+run/
+/.idea/
+/.vscode/
+/.claude/settings.local.json
