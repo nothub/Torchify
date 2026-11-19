@@ -3,7 +3,7 @@ version: '@mod_version@'
 api-version: '@minecraft_version@'
 main: 'lol.hub.torchify.Plugin'
 description: 'Light it up!'
-website: 'https://github.com/nothub/Torchify'
+website: 'https://github.com/nothub/torchify'
 authors: [ 'nothub' ]
 contributors: [ ]
 
