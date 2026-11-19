@@ -22,7 +22,7 @@ Once a second, Torchify places one light on the furthest spot that is:
 
 The furthest spot spreads the lights out, so an area becomes spawn-safe with few items.
 
-### Item Priority
+## Item Priority
 
 Torchify uses the best item you carry, in this order:
 
@@ -36,7 +36,7 @@ Items within one group rank equal. Inventory order decides between them.
 
 If the best item fits nowhere, Torchify tries the next one.
 
-### Placement
+## Placement
 
 | Item     | Floor | Ceiling (hanging) | Underwater |
 |----------|-------|-------------------|------------|
@@ -45,7 +45,7 @@ If the best item fits nowhere, Torchify tries the next one.
 
 Where a lantern could either stand or hang, it stands. Underwater means source water, not flowing water.
 
-### Where Torchify Does Nothing
+## Where Torchify Does Nothing
 
 - In the Nether, or any dimension where block light can't stop spawns.
 - Where every spot in reach is already lit enough.
