@@ -2,8 +2,8 @@
 
 Paper plugin. Light it up!
 
-[![GitHub](https://img.shields.io/github/stars/nothub/torchify)](https://github.com/nothub/torchify)
-[![Modrinth](https://img.shields.io/modrinth/dt/VblQOYSn?label=Modrinth)](https://modrinth.com/mod/torchify)
+[![GitHub](https://img.shields.io/github/stars/nothub/torchify?style=flat&label=GitHub&logo=github&color=181717)](https://github.com/nothub/torchify)
+[![Modrinth](https://img.shields.io/modrinth/dt/VblQOYSn?style=flat&label=Modrinth&logo=modrinth&color=1bd96a)](https://modrinth.com/mod/torchify)
 
 ---
 
